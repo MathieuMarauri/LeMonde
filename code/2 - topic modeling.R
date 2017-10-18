@@ -3,6 +3,11 @@
 # to know if the LDA method can properly classify the articles based on their
 # topics on the website
 
+# The corpus is first tagged and lemmatized. 
+# Then stopwords are removed.
+# Finally the LDA model is applied on the corpus.
+# Step 2 and 3 are repeated and several models are obtained
+
 # Packages ----------------------------------------------------------------
 
 library('data.table')
@@ -11,140 +16,105 @@ library('ggplot2')
 source('code/functions.R')
 
 
-# Data pre-processing -----------------------------------------------------
+# Corpus ------------------------------------------------------------------
 
 articles <- readRDS('data/articles.rds')
 
 # keep only id and text
-articles <- articles[, .(id = as.character(id), text, category = stri_replace_all_regex(topic, '/.*', ''), other_category = topic, subcategory = subtopic)]
+articles <- articles[, .(id = as.character(id), text)]
+
+
+# Tokenization/lemmatization/pos tgging -----------------------------------
 
 # replace apostrophe by proper character symbol so treetagger can properly
 # tokenize words
 apostrophe <- substr(articles$text[21], start = 4, 4)
 articles$text <- stri_replace_all_fixed(str = articles$text, pattern = apostrophe, replacement = "'")
 
-# tokenization and lemmatization are done using treetagger. A table with word
-# count by article is obtained and cast as a document-term matrix while
-# lemmatization is done, words with tags different than ADJ, ADV, NOM and VER
-# are removed. Besides être and avoir are also removed
-# article_word_count <- lapply(X = 1:nrow(articles), 
-#                              FUN = function(i) lemmatize(text = articles$text[i], id = articles$id[i]))
-# article_word_count <- do.call(rbind, article_word_count)
-# saveRDS(article_word_count, 'data/article_word_count.rds')
-article_word_count <- readRDS('data/article_word_count.rds')
+# tokenization and lemmatization are done using treetagger. 
+article_word <- lapply(X = 1:nrow(articles),
+                             FUN = function(i) lemmatize(text = articles$text[i], id = articles$id[i], filter = FALSE))
+article_word <- do.call(rbind, article_word)
+article_word <- article_word[, .(article_id = id, word = lemma, pos)]
 
-# stopwords are removed using a pre-defined bag of words
-stopwords <- readLines('data/stopwords_fr.txt')
-stopwords <- data.table(lemma = stopwords)
-article_word_count <- article_word_count[!stopwords, on = 'lemma']
+# punctuation marks, symbols and sentence marks are removed
+article_word <- article_word[!pos %in% c('PUN', 'PUN:cit', 'SENT', 'SYM')]
+
+# save result and clean session
+saveRDS(article_word, 'data/article_word.rds')
+rm(apostrophe, article_word, articles)
+
+
+# Stopwords removal -------------------------------------------------------
+
+# several stopwords removal methods will be applied on the corpus. The results
+# are saved and the LDA is then performed on these new corpus.
+
+# The methods are : bag of words, pos tags, TF1, IDF, mix of all
+
+# tagged corpus 
+article_word <- readRDS('data/article_word.rds')
+
+
+# Bag of words ------------------------------------------------------------
+
+# words are grouped by article 
+article_word_count <- article_word[, .(count = .N), by = list(article_id, word)]
+
+# load the stopwords list and anti-join it with the corpus
+stopwords <- readLines('data/dtm stopwords/stopwords_fr.txt')
+stopwords <- data.table(word = stopwords)
+article_word_count <- article_word_count[!stopwords, on = 'word']
 
 # cast to document-term-matrix
-articles_dtm <- tidytext::cast_dtm(data = article_word_count, document = id, term = lemma, value = count)
+articles_dtm_bow <- tidytext::cast_dtm(data = article_word_count, document = article_id, term = word, value = count)
+
+# save result and clean session
+saveRDS(articles_dtm_bow, 'data/dtm stopwords/articles_dtm_bow.rds')
+rm(article_word_count, stopwords, articles_dtm_bow)
+
+
+# POS tags ----------------------------------------------------------------
+
+# only the tags ADJ, ADV, NOM, NAM, and VER: are kept
+article_word_count <- article_word[pos %in% c('ADJ', 'ADV', 'NOM', 'NAM') | 
+                                     stringi::stri_detect_regex(str = pos, pattern = '^VER'), 
+                                   .(count = .N), 
+                                   by = list(article_id, word)]
+
+# cast to document-term-matrix
+articles_dtm_pos <- tidytext::cast_dtm(data = article_word_count, document = article_id, term = word, value = count)
+
+# save result and clean session
+saveRDS(articles_dtm_pos, 'data/dtm stopwords/articles_dtm_pos.rds')
+rm(article_word_count, articles_dtm_pos)
+
+
+# TF1 ---------------------------------------------------------------------
+
+# words that appear only once in the corpus are removed
+word_count <- article_word[, .(count = .N), by = word]
+word_count <- word_count[count == 1, .(word)]
+article_word_count <- article_word[, .(count = .N), by = list(article_id, word)]
+article_word_count <- article_word_count[!word_count, on = 'word']
+
+# cast to document-term-matrix
+articles_dtm_tf1 <- tidytext::cast_dtm(data = article_word_count, document = article_id, term = word, value = count)
+
+# save result and clean session
+saveRDS(articles_dtm_tf1, 'data/dtm stopwords/articles_dtm_tf1.rds')
+rm(article_word_count, word_count, articles_dtm_tf1)
+
+
+# TF-IDF ------------------------------------------------------------------
+
+
+# using idf
+# inverse document frequency is the log of number of documents / numbers of documents with the word
+n_doc <- uniqueN(article_word_count$article_id)
+article_word_count[, idf := uniqueN(article_id) / n_doc, by = word]
 
 # clean session
 rm(article_word_count, stopwords, apostrophe)
 
 
-# Topic modeling ----------------------------------------------------------
-
-# topic modeling is performed on the document-term matrix created with the
-# articles. The number of topic is 9, the same as the number of categories found
-# on the lemonde.fr.
-
-# articles_lda <- topicmodels::LDA(articles_dtm, k = 9, control = list(seed = 1234))
-# rm(articles_dtm)
-# saveRDS(articles_lda, 'data/articles_lda.rds')
-
-
-# Beta probabilities ------------------------------------------------------
-
-# import model results
-articles_lda <- readRDS('data/articles_lda.rds')
-
-# per-topic-per-term probabilities: what are the words most associated with the
-# topics?
-
-# extract beta probabilities from the model
-topic_term <- tidytext::tidy(articles_lda, matrix = "beta")
-setDT(topic_term)
-
-# top words by topic
-topic_term_top10 <- topic_term[order(-beta), head(.SD, 10), by = topic]
-topic_term_top10[, term := reorder(term, beta)]
-
-ggplot(data = topic_term_top10, mapping = aes(x = term, y = beta)) +
-  geom_point(show.legend = FALSE) + 
-  geom_segment(mapping = aes(xend = term, yend = 0), show.legend = FALSE) + 
-  facet_wrap(~ topic, scales = "free") + 
-  coord_flip()
-
-# words that are most associated with one topic but not the others
-
-# maximum difference between beta probability on one topic versus mean on all
-# other topics
-topic_term[, beta_diff := beta - mean(beta), by = term]
-
-# top diff by topic
-topic_term_diff10 <- topic_term[order(-beta_diff), head(.SD, 10), by = topic]
-topic_term_diff10[, term := reorder(term, beta_diff)]
-
-ggplot(data = topic_term_diff10, mapping = aes(x = term, y = beta)) +
-  geom_point(show.legend = FALSE) + 
-  geom_segment(mapping = aes(xend = term, yend = 0), show.legend = FALSE) + 
-  facet_wrap(~ topic, scales = "free") + 
-  coord_flip()
-
-# some topics seem to be clearly defined by the words defining them.
-# topic 2 = sport
-# topic 8 = health
-# topic 6 = culture
-# topic 7 = irma typhoon
-# topic 3 = economy
-# topic 5 = judiciary
-# topic 9 = politics/catalan independance
-# topic 1 = labour act
-# topic 4 ?
-
-# clean session
-rm(articles_lda, topic_term, topic_term_top10)
-
-
-# Gamma probabilities -----------------------------------------------------
-
-# per-document-per-topic probabilities: what are the topics most associated with
-# the articles ?
-
-# Are the articles properly classified? First the most likely topic is retrieved
-# for every article. Then a table gives the number of articles by couple
-# opic/category at a given gamma threshold
-
-# extarct gamma probabilities from the model
-article_topic <- tidytext::tidy(articles_lda, matrix = "gamma")
-setDT(article_topic)
-
-# most likely topic with gamma probability higher than threshold
-gamma_threshold <- 0.0
-article_topic <- article_topic[gamma >= gamma_threshold]
-article_topic <- article_topic[, .(topic = topic[which.max(gamma)], gamma = max(gamma)), by = document]
-# number of article that are excluded
-nrow(articles) - nrow(article_topic)
-
-# get the category from the articles table 
-article_topic <- merge(x = article_topic, 
-                       y = articles[, .(id, category, other_category)],
-                       by.x = 'document', 
-                       by.y = 'id', 
-                       all.x = TRUE,
-                       all.y = FALSE)
-article_topic <- article_topic[, .(article_id = document, topic, category, other_category, gamma)]
-
-# number of articles by couple topic/category
-article_topic <- article_topic[, .(value = uniqueN(article_id), gamma = mean(gamma)), by = list(topic, category)][order(-value)]
-
-# number of article by topic and by category
-article_topic[, topic_total := sum(value), by = topic]
-article_topic[, category_total := sum(value), by = category]
-article_topic[, c('topic_percent', 'category_percent') := list(round(value / topic_total * 100, digits = 1), round(value / category_total * 100, digits = 1))]
-article_topic[, c('topic_total', 'category_total') := NULL]
-
-rm(article_topic)

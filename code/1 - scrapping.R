@@ -13,7 +13,7 @@
 library('rvest')
 library('stringi')
 library('data.table')
-source('code/functions.R')
+source('code/functions/1 - scrapping functions.R')
 
 
 # Topic names -------------------------------------------------------------

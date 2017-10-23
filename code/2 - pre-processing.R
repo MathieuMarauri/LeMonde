@@ -18,7 +18,7 @@
 library('data.table')
 library('stringi')
 library('ggplot2')
-source('code/functions.R')
+source('code/functions/2 - pre-processing functions.R')
 
 
 # Corpus ------------------------------------------------------------------

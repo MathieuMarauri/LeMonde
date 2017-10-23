@@ -69,10 +69,10 @@ article_word_count <- article_word[, .(count = .N), by = list(article_id, word)]
 nb_words_baseline <- uniqueN(article_word_count$word)
 
 # cast to document-term-matrix
-dtm_baseline <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_baseline <- tidytext::cast_dtm(data = article_word_count, 
                                    document = article_id, 
                                    term = word, 
-                                   value = count)
+                                   value = count))
 
 saveRDS(dtm_baseline, 'data/dtm/dtm_baseline.rds')
 rm(article_word_count, dtm_baseline)
@@ -94,14 +94,16 @@ article_word_count <- article_word_count[!stopwords, on = 'word']
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-dtm_bow <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_bow <- tidytext::cast_dtm(data = article_word_count, 
                               document = article_id, 
                               term = word, 
-                              value = count)
+                              value = count))
 
 # save result and clean session
 saveRDS(dtm_bow, 'data/dtm/dtm_bow.rds')
 rm(article_word_count, stopwords, dtm_bow)
+
+# < 1% removed, sparsity = 100%
 
 
 # POS tags ----------------------------------------------------------------
@@ -119,14 +121,16 @@ article_word_count <- article_word[pos %in% c('ADJ', 'ADV', 'NOM', 'NAM') |
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-dtm_pos <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_pos <- tidytext::cast_dtm(data = article_word_count, 
                                        document = article_id, 
                                        term = word, 
-                                       value = count)
+                                       value = count))
 
 # save result and clean session
 saveRDS(dtm_pos, 'data/dtm/dtm_pos.rds')
 rm(article_word_count, dtm_pos)
+
+# 1% removed, sparsity = 100%
 
 
 # TF1 ---------------------------------------------------------------------
@@ -143,14 +147,16 @@ article_word_count <- article_word_count[!word_count, on = 'word']
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-dtm_tf1 <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_tf1 <- tidytext::cast_dtm(data = article_word_count, 
                               document = article_id, 
                               term = word, 
-                              value = count)
+                              value = count))
 
 # save result and clean session
 saveRDS(dtm_tf1, 'data/dtm/dtm_tf1.rds')
 rm(article_word_count, word_count, dtm_tf1)
+
+# 45% removed, sparsity = 99%
 
 
 # IDF ---------------------------------------------------------------------
@@ -165,13 +171,26 @@ article_word_count <- article_word[, .(count = .N), by = list(article_id, word)]
 # idf
 word_idf <- article_word_count[, .(idf = log(nrow(articles) / uniqueN(article_id))), by = word]
 
-# find threshold
-idf_repart <- word_idf[, .(nb_word = .N), by = idf]
-ggplot(data = idf_repart, mapping = aes(x = idf, y = nb_word)) + 
-  geom_line()
-
 # IDF0 and IDF max are used to remove stopwords
-word_idf <- word_idf[idf < 7.848890 | idf > 0]
+word_idf <- word_idf[idf == max(idf) | idf == 0]
+
+# remove words with IDF0 or IDFmax
+article_word_count <- article_word_count[!word_idf, on = 'word']
+
+# percentage of words removed
+(1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
+
+# cast to document-term-matrix
+(dtm_idf <- tidytext::cast_dtm(data = article_word_count, 
+                               document = article_id, 
+                               term = word, 
+                               value = count))
+
+# save result and clean session
+saveRDS(dtm_idf, 'data/dtm/dtm_idf.rds')
+rm(article_word_count, word_idf, dtm_idf)
+
+# 51% removed, sparsity = 99%
 
 
 # TF-IDF ------------------------------------------------------------------
@@ -192,7 +211,6 @@ word_tfidf <- article_word_count[, .(tfidf = mean(tfidf)), by = word][order(tfid
 
 # The first words are removed (this number is obtained looking at the table
 # and considering a threshold above which words carry inforamtion)
-# The number 
 word_tfidf <- head(word_tfidf, 100)
 
 # remove words from corpus
@@ -202,16 +220,44 @@ article_word_count <- article_word_count[!word_tfidf, on = 'word']
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-dtm_tfidf <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_tfidf <- tidytext::cast_dtm(data = article_word_count, 
                               document = article_id, 
                               term = word, 
-                              value = count)
+                              value = count))
 
 # save result and clean session
 saveRDS(dtm_tfidf, 'data/dtm/dtm_tfidf.rds')
 rm(article_word_count, word_tfidf, dtm_tfidf)
 
+# < 1% removed, sparsity = 100%
+
 
 # Mix ---------------------------------------------------------------------
 
+# words are removed using the pos tags method and the idf method 
+
+# pos tag method
+article_word_count <- article_word[pos %in% c('ADJ', 'ADV', 'NOM', 'NAM') | 
+                                     stringi::stri_detect_regex(str = pos, pattern = '^VER'),
+                                   .(count = .N), by = list(article_id, word)]
+
+# idf method
+word_idf <- article_word_count[, .(idf = log(nrow(articles) / uniqueN(article_id))), by = word]
+word_idf <- word_idf[idf == max(idf) | idf == 0]
+article_word_count <- article_word_count[!word_idf, on = 'word']
+
+# percentage of words removed
+(1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
+
+# cast to document-term-matrix
+(dtm_mix <- tidytext::cast_dtm(data = article_word_count, 
+                                 document = article_id, 
+                                 term = word, 
+                                 value = count))
+
+# save result and clean session
+saveRDS(dtm_mix, 'data/dtm/dtm_mix.rds')
+rm(article_word_count, word_idf, dtm_mix)
+
+# 52% removed, sparsity = 100%
 

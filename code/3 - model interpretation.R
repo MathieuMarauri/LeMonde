@@ -3,7 +3,7 @@
 # to know if the LDA method can properly classify the articles based on their
 # topics on the website
 
-
+# http://blog.echen.me/2011/08/22/introduction-to-latent-dirichlet-allocation/
 
 # Corpus ------------------------------------------------------------------
 

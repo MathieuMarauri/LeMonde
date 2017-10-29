@@ -60,3 +60,6 @@ getTopWords(model = articles_lda, use_diff = TRUE, n = 10)
 
 # Words from topic 5 are still not informative enough, Irma now appears in th
 # top 10 words in topic 3
+
+# How are the articles distributed on the topics?
+confusionMatrix(model = articles_lda, gamma_threshold = NULL, sankey = FALSE)

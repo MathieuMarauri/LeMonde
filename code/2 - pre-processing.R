@@ -86,7 +86,7 @@ rm(article_word_count, dtm_baseline)
 article_word_count <- article_word[, .(count = .N), by = list(article_id, word)]
 
 # load the stopwords list and anti-join it with the corpus
-stopwords <- readLines('data/dtm/stopwords_fr.txt')
+stopwords <- readLines('data/dtm/stopwords_fr.txt', encoding = 'UTF-8')
 stopwords <- data.table(word = stopwords)
 article_word_count <- article_word_count[!stopwords, on = 'word']
 

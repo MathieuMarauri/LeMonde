@@ -1,24 +1,24 @@
 
 #'
-#' This function extracts information on the articles on a given topic on the
+#' This function extracts information on the articles on a given category on the
 #' website of LeMonde
 #'
-#' @param topic a valid topic name found on the website
+#' @param category a valid category name found on the website
 #' @param maxPage maximum page number
 #' @param minPage minimum page number
 #'
 #' @return a table with the infos of the articles (title, url, date, time,
-#'   topic)
+#'   category)
 #'
 #' @details urls for videos, live and blog posts are removed because of their
 #'   structure
 #'   
-getArticleInfo <- function(topic, maxPage = 5, minPage = 1) {
+getArticleInfo <- function(category, maxPage = 5, minPage = 1) {
   baseUrl <- 'http://www.lemonde.fr'
   infos <- lapply(X = minPage:maxPage,
                   FUN = function(i){
                     tryCatch({
-                      url_path <- paste0(baseUrl, '/', topic, '/', i, '.html')
+                      url_path <- paste0(baseUrl, '/', category, '/', i, '.html')
                       url_path <- read_html(url_path)
                       url <- html_nodes(url_path, ".grid_12.alpha.enrichi .grid_11.conteneur_fleuve.omega h3 a") %>% 
                         html_attr(name = 'href')
@@ -34,7 +34,7 @@ getArticleInfo <- function(topic, maxPage = 5, minPage = 1) {
                     })
                   })
   infos <- do.call(rbind, infos)
-  infos[, topic := topic]
+  infos[, category := category]
   infos <- infos[!(stri_detect_regex(str = url, pattern = '(/video/|/videos/|/portfolio/|/live/|/grands-formats/)') | 
                      stri_detect_fixed(str = url, pattern = '.blog.') | 
                      stri_detect_fixed(str = url, pattern = '/live/'))]
@@ -82,27 +82,27 @@ getArticleAuthor <- function(articleUrl) {
 
 #'
 #' This function cretes a table containing inforamtion on article from a given
-#' topic
+#' category
 #'
-#' @param topic the name of the topic, must be a valid topic name
+#' @param category the name of the category, must be a valid category name
 #' @param maxPage maximum page number
 #' @param minPage minimum page number
 #'
-#' @return a table with title, text, topic, subtopic, date, time, author,
+#' @return a table with title, text, category, subcategory, date, time, author,
 #'   and url
 #'   
-createTopicTable <- function(topic, maxPage = 5, minPage = 1) {
-  articles_topic <- getArticleInfo(topic = topic, maxPage = maxPage, minPage = minPage)
-  article_text <- lapply(X = articles_topic$url,
+createcategoryTable <- function(category, maxPage = 5, minPage = 1) {
+  articles_category <- getArticleInfo(category = category, maxPage = maxPage, minPage = minPage)
+  article_text <- lapply(X = articles_category$url,
                          FUN = function(url) getArticleText(articleUrl = url))
-  article_author <- lapply(X = articles_topic$url,
+  article_author <- lapply(X = articles_category$url,
                            FUN = function(url) getArticleAuthor(articleUrl = url))
-  subtopic <- stri_replace_all_regex(str = articles_topic$url,
+  subcategory <- stri_replace_all_regex(str = articles_category$url,
                                      pattern = '.*fr/(.*)/article/.*',
                                      replacement = '$1')
-  articles_topic <- articles_topic[, .(title, text = unlist(article_text), topic,
-                                       subtopic = subtopic, date, time,
+  articles_category <- articles_category[, .(title, text = unlist(article_text), category,
+                                       subcategory = subcategory, date, time,
                                        author = unlist(article_author),
                                        url, date_creation = Sys.time())]
-  return(articles_topic)
+  return(articles_category)
 }

@@ -47,6 +47,15 @@ articles <- articles[text != '\n',
                        date_creation = date_creation[1]),
                      by = title]
 articles <- cbind(id = 1:nrow(articles), articles)
+
+# fix column names
+names(articles) <- c('id', 'title', 'text', 'category', 'subcategory', 'date', 
+                     'time', 'author', 'url', 'date_creation')
+# fix subcategory
+articles$subcategory <- stri_replace_all_regex(str = articles$url,
+                                               pattern = '.*fr/(.*)/article/.*',
+                                               replacement = '$1')
+
 saveRDS(articles, 'data/articles.rds')
 
 # cleaning session

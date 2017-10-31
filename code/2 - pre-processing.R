@@ -40,11 +40,11 @@ articles$text <- stri_replace_all_fixed(str = articles$text,
 
 # tokenization and lemmatization are done using treetagger. 
 article_word <- lapply(X = 1:nrow(articles),
-                             FUN = function(i) {
-                               lemmatize(text = articles$text[i], 
-                                         id = articles$id[i], 
-                                         filter = FALSE)
-                             })
+                       FUN = function(i) {
+                         lemmatize(text = articles$text[i], 
+                                   id = articles$id[i], 
+                                   filter = FALSE)
+                       })
 article_word <- do.call(rbind, article_word)
 article_word <- article_word[, .(article_id = id, word = lemma, pos)]
 
@@ -70,9 +70,9 @@ nb_words_baseline <- uniqueN(article_word_count$word)
 
 # cast to document-term-matrix
 (dtm_baseline <- tidytext::cast_dtm(data = article_word_count, 
-                                   document = article_id, 
-                                   term = word, 
-                                   value = count))
+                                    document = article_id, 
+                                    term = word, 
+                                    value = count))
 
 saveRDS(dtm_baseline, 'data/dtm/dtm_baseline.rds')
 rm(article_word_count, dtm_baseline)
@@ -95,9 +95,9 @@ article_word_count <- article_word_count[!stopwords, on = 'word']
 
 # cast to document-term-matrix
 (dtm_bow <- tidytext::cast_dtm(data = article_word_count, 
-                              document = article_id, 
-                              term = word, 
-                              value = count))
+                               document = article_id, 
+                               term = word, 
+                               value = count))
 
 # save result and clean session
 saveRDS(dtm_bow, 'data/dtm/dtm_bow.rds')
@@ -122,9 +122,9 @@ article_word_count <- article_word[pos %in% c('ADJ', 'ADV', 'NOM', 'NAM') |
 
 # cast to document-term-matrix
 (dtm_pos <- tidytext::cast_dtm(data = article_word_count, 
-                                       document = article_id, 
-                                       term = word, 
-                                       value = count))
+                               document = article_id, 
+                               term = word, 
+                               value = count))
 
 # save result and clean session
 saveRDS(dtm_pos, 'data/dtm/dtm_pos.rds')
@@ -148,9 +148,9 @@ article_word_count <- article_word_count[!word_count, on = 'word']
 
 # cast to document-term-matrix
 (dtm_tf1 <- tidytext::cast_dtm(data = article_word_count, 
-                              document = article_id, 
-                              term = word, 
-                              value = count))
+                               document = article_id, 
+                               term = word, 
+                               value = count))
 
 # save result and clean session
 saveRDS(dtm_tf1, 'data/dtm/dtm_tf1.rds')
@@ -221,9 +221,9 @@ article_word_count <- article_word_count[!word_tfidf, on = 'word']
 
 # cast to document-term-matrix
 (dtm_tfidf <- tidytext::cast_dtm(data = article_word_count, 
-                              document = article_id, 
-                              term = word, 
-                              value = count))
+                                 document = article_id, 
+                                 term = word, 
+                                 value = count))
 
 # save result and clean session
 saveRDS(dtm_tfidf, 'data/dtm/dtm_tfidf.rds')
@@ -251,9 +251,9 @@ article_word_count <- article_word_count[!word_idf, on = 'word']
 
 # cast to document-term-matrix
 (dtm_mix <- tidytext::cast_dtm(data = article_word_count, 
-                                 document = article_id, 
-                                 term = word, 
-                                 value = count))
+                               document = article_id, 
+                               term = word, 
+                               value = count))
 
 # save result and clean session
 saveRDS(dtm_mix, 'data/dtm/dtm_mix.rds')

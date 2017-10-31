@@ -16,7 +16,7 @@ source('code/functions/LDA analysis.R')
 articles <- readRDS('data/articles.rds')
 
 # keep only relevant variables
-articles <- articles[, .(id = as.character(id), text, category = topic, subcategory = subtopic)]
+articles <- articles[, .(id = as.character(id), text, category, subcategory)]
 
 # transform category and subcategory to keep only the last item
 articles[, subcategory_main := stri_replace_all_regex(subcategory, '.*/', '')]

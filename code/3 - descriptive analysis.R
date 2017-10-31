@@ -18,10 +18,10 @@ library('stringi')
 articles_raw <- readRDS('data/articles.rds')
 
 # only keep metadata
-articles_meta <- articles_raw[, .(id, date, time, author, topic, subtopic)]
+articles_meta <- articles_raw[, .(id, date, time, author, category, subcategory)]
 
 
 # Analysis of metadata ----------------------------------------------------
 
 # topic
-topic <- articles_meta[, .(count = .N), by = topic]
+topic <- articles_meta[, .(count = .N), by = category]

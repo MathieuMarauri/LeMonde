@@ -97,7 +97,7 @@ createTopicTable <- function(topic, maxPage = 5, minPage = 1) {
                          FUN = function(url) getArticleText(articleUrl = url))
   article_author <- lapply(X = articles_topic$url,
                            FUN = function(url) getArticleAuthor(articleUrl = url))
-  subtopic <- stri_replace_all_regex(str = articles_topic$url[1],
+  subtopic <- stri_replace_all_regex(str = articles_topic$url,
                                      pattern = '.*fr/(.*)/article/.*',
                                      replacement = '$1')
   articles_topic <- articles_topic[, .(title, text = unlist(article_text), topic,

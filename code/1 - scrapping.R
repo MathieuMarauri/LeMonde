@@ -1,8 +1,8 @@
 
-# News article are scrapped from LeMonde. Scrapping is done by topic so that
+# News article are scrapped from LeMonde. Scrapping is done by category so that
 # articles are pre-classified. Every articles from every categories are
-# extracted. The title, the author, the text, the timestamp, the topic, the
-# subtopic and the url are retrieved for each article.
+# extracted. The title, the author, the text, the timestamp, the category, the
+# subcategory and the url are retrieved for each article.
 
 # Using the rvest package and going through the source code of the articles
 # webpages, helper functions are created to extract the different features
@@ -16,30 +16,30 @@ library('data.table')
 source('code/functions/1 - scrapping functions.R')
 
 
-# Topic names -------------------------------------------------------------
+# category names -------------------------------------------------------------
 
-topic_names <- read_html('http://www.lemonde.fr/') %>% 
+category_names <- read_html('http://www.lemonde.fr/') %>% 
   html_nodes("#navigation-generale li") %>% 
   html_attr("class") %>% 
   unique() %>% 
   stri_replace_all_fixed(pattern = ' ', replacement = '')
-# only relevant topics are kept: topic where the structure is the one used in
-# getArticleInfo (http://www.lemonde.fr/topic/1.html)
-topic_names <- topic_names[2:10] 
+# only relevant categorys are kept: category where the structure is the one used in
+# getArticleInfo (http://www.lemonde.fr/category/1.html)
+category_names <- category_names[2:10] 
 
 
 # Articles ----------------------------------------------------------------
 
-articles <- lapply(X = topic_names, 
-                   FUN = function(topic) createTopicTable(topic = topic, maxPage = 20))
+articles <- lapply(X = category_names, 
+                   FUN = function(category) createcategoryTable(category = category, maxPage = 20))
 articles <- do.call(rbind, articles)
 articles <- articles[!is.na(text)]
 
 # some articles are duplicated
 articles <- articles[text != '\n', 
                      .(text = text[1], 
-                       topic = paste(topic, collapse = '/'),
-                       subtopic = paste(subtopic, collapse = '/'),
+                       category = paste(category, collapse = '/'),
+                       subcategory = paste(subcategory, collapse = '/'),
                        date = date[1],
                        time = time[1],
                        author = author[1],
@@ -48,13 +48,12 @@ articles <- articles[text != '\n',
                      by = title]
 articles <- cbind(id = 1:nrow(articles), articles)
 
-# fix column names
-names(articles) <- c('id', 'title', 'text', 'category', 'subcategory', 'date', 
-                     'time', 'author', 'url', 'date_creation')
-# fix subcategory
-articles$subcategory <- stri_replace_all_regex(str = articles$url,
-                                               pattern = '.*fr/(.*)/article/.*',
-                                               replacement = '$1')
+# some articles have several categories that are the same, these categories are
+# cleaned
+articles$category <- strsplit(articles$category, split = '/')
+articles$category <- sapply(X = articles$category, 
+                            FUN = function(x) paste(unique(x), 
+                                                    collapse = '/'))
 
 saveRDS(articles, 'data/articles.rds')
 

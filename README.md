@@ -99,3 +99,6 @@ The resulting corpus contains the article content and some metadata. It has 2404
 The text and the subcategory are the two variables that will be used. The other features may be of use for other studies. 
 
 --- 
+## Pre-procesing
+
+The corpus created in the previous section contains raw text data. NLP tasks should be done on pre-processed text. Raw text yields poor results because it usually contains lots of non-informative words. Those words are called stopwords. LDA tries to find latent topic hidden in a corpus of text. It basically tries to find groups of words that appears in the same document and not in others. It can be easily understood that words like `a`, `the` or `are` will not help the model find good topics. Hence it is necessary to properly clean the corpus from all these stopwords. Several methods can be used to remove stopwords, 5 different methods are presented here and tested on the corpus. Besides a mix of several methods is presented as a 6th method. Performing 6 different stopwwords removal methods 

@@ -1,4 +1,11 @@
-# LeMonde topic modeling ![](https://github.com/MathieuMarauri/LeMonde/raw/master/report/animated-newspaper-image-0026.gif =100px)
+---
+output:
+  html_document:
+    keep_md: true
+---
+
+
+# LeMonde topic modeling
  
 ## Introduction
   

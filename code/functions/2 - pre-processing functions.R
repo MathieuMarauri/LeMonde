@@ -1,8 +1,8 @@
 #' This function lemmatizes a text using treetagger.
 #' 
-#' @param text a raw character vectr of length one.
+#' @param text a raw character vector of length one.
 #' @param id the id of the text in the corpus
-#' @param filter booena, should some pos be filtered out
+#' @param filter boolean, should some pos be filtered out
 #' 
 #' @return a table with id, lemma and count
 #' 

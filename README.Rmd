@@ -1,9 +1,3 @@
-
-```{r echo = FALSE, eval = TRUE}
-knitr::opts_chunk$set(fig.align = 'center', eval = FALSE, echo = TRUE)
-```
-
-
 # LeMonde topic modeling
  
 ## Introduction
@@ -15,14 +9,14 @@ knitr::opts_chunk$set(fig.align = 'center', eval = FALSE, echo = TRUE)
 
 The corpus is created using news articles from the website of a french newspaper. The articles are scrapped using the `rvest` package. The content of the article is extracted, along with the title, the author, the date of publication, the category on the website in which the article is and the subactegory found in the url. The resulting corpus contains 2404 articles published between the 11th of July and the 13th of October of 2017. There were extracted the 13th of October. 
 
-```{r}
+```{r eval = FALSE}
 install.packages('rvest')
 library('rvest')
 ```
 
 Other packages are used in the scrapping process. 
 
-```{r}
+```{r eval = FALSE}
 library('data.table') # to manipulate table 
 library('stringi') # to manipulate strings
 ```
@@ -37,7 +31,7 @@ The first step is to extract the categories name so that the extraction can then
 
 Extracting category names is done using the following code:
 
-```{r}
+```{r eval = FALSE}
 topic_names <- read_html('http://www.lemonde.fr/') %>% 
 html_nodes("#navigation-generale li") %>% 
 html_attr("class") %>% 
@@ -54,7 +48,7 @@ Before extracting the content of an article it is necessary to have the url of t
 
 Extracting the urls of the articles of a webpage is done using the following.
 
-```{r}
+```{r eval = FALSE}
 url_path <- 'http://www.lemonde.fr/politique/1.html'
 url_path <- read_html(url_path)
 url <- html_nodes(url_path, ".grid_12.alpha.enrichi .grid_11.conteneur_fleuve.omega h3 a") %>% 
@@ -67,7 +61,7 @@ The attribute _href_ is extracted for all elements having the stucture described
 
 The content of an article is the central information of the corpus, after extracting the url it is possible to have the content of the article. Doing so require to find the correct css structure leading to the content for every articles. Some trials and errors are needed at this step. The solution found is the following:
 
-```{r}
+```{r eval = FALSE}
 articleUrl <- read_html(articleUrl)
 first_par <- html_nodes(articleUrl, "div[itemprop=articleBody] .taille_courante") %>% html_text() %>% paste(collapse = ' ')
 other_par <- html_nodes(articleUrl, "div[itemprop=articleBody] p:not(.lire)") %>% html_text() %>% paste(collapse = ' ')
@@ -80,7 +74,7 @@ Two differents css structures are used to extract the entire content of the text
 
 When it is available, the author of the article is also extracted from the webpage. 
 
-```{r}
+```{r eval = FALSE}
 author <- html_nodes(articleUrl, ".signature_article span") %>% html_text()
 ```
 
@@ -165,7 +159,7 @@ Knowing the part-of-speech of the word to lemmatize, the algorithm uses a dictio
 
 The entire pre-procesing is done in one call to treetagger. It tokenizes then lemmatize and tag the corpus. The call has been encapsulated in a function for convenience mainly to have a proper structure in the output. Treetagger is installed as a dependency and it is called using a shell command. The resulting text file is imported into R and returned as a table. 
 
-```{r}
+```{r eval = FALSE}
 #' This function lemmatizes a text using treetagger.
 #' 
 #' @param text a raw character vector of length one.
@@ -213,7 +207,7 @@ Term-frequency is the number of times a term appears in the corpus. We consider 
 
 The choice of using TF1 can be visualy justify with an elbow like method. 
 
-```{r echo = FALSE, eval = TRUE}
+```{r echo = FALSE, eval = TRUE, fig.align = 'center'}
 library('data.table')
 library('ggplot2')
 article_word <- readRDS('data/article_word.rds')

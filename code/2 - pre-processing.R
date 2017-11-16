@@ -141,11 +141,15 @@ rm(article_word_count, dtm_pos)
 word_count <- article_word[, .(tf = .N), by = word]
 
 ggplot(data = word_count[, .(count = .N), by = tf][tf <= 25][order(-count)], mapping = aes(x = tf, y = count)) + 
-  geom_point(size = 2) +
-  geom_segment(mapping = aes(xend = tf, yend = 0), show.legend = FALSE) + 
-  scale_x_continuous(breaks = seq(1, 25, by = 1)) + 
-  labs(x = 'Term-frequency', y = '', title = 'Number of words by term-frequency lower than 25') + 
-  theme_bw()
+    geom_point(size = 2) +
+    geom_segment(mapping = aes(xend = tf, yend = 0), show.legend = FALSE) + 
+    scale_x_continuous(breaks = seq(1, 25, by = 1)) + 
+    labs(x = 'Term-frequency', y = '', title = 'Number of words by term-frequency lower than 25') + 
+    theme_bw()
+
+# saving plot for readme
+dev.copy(png, 'report/tfPlot.png')
+dev.off()
 
 word_count <- word_count[tf == 1, .(word)]
 article_word_count <- article_word[, .(tf = .N), by = list(article_id, word)]

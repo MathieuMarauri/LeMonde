@@ -1,25 +1,28 @@
-# LeMonde topic modeling
 
---- 
-  
+```{r echo = FALSE}
+knitr::opts_chunk$set(fig.align = 'center', eval = FALSE, echo = TRUE)
+```
+
+
+# LeMonde topic modeling
+ 
 ## Introduction
   
   This project's objective is to apply a topic modeling method on a corpus of documents. The goal is to test the Latent Dirichlet Method (LDA) and to see how it performs on a corpus pre-processed with different stopwords removal methods. The corpus is built using news articles from [lemonde](http://www.lemonde.fr/), a french newspaper. The goal is to analyze the results of the LDA model with regard to the website categories in which the articles were. The LDA model needs an apriori, user defined, number of topics as input. Knowing the category in which the article was on the website is a start point to decide the number of topics to ask to the model and also an indicator of performance of the model: are the articles most associated with the topic corresponding to their category on the website. The entire process -scrapping, pre-processing and modelization- is done in R. 
 
---- 
 
 ## Creation of the corpus
 
 The corpus is created using news articles from the website of a french newspaper. The articles are scrapped using the `rvest` package. The content of the article is extracted, along with the title, the author, the date of publication, the category on the website in which the article is and the subactegory found in the url. The resulting corpus contains 2404 articles published between the 11th of July and the 13th of October of 2017. There were extracted the 13th of October. 
 
-```{r eval = FALSE}
+```{r}
 install.packages('rvest')
 library('rvest')
 ```
 
 Other packages are used in the scrapping process. 
 
-```{r eval = FALSE}
+```{r}
 library('data.table') # to manipulate table 
 library('stringi') # to manipulate strings
 ```
@@ -34,7 +37,7 @@ The first step is to extract the categories name so that the extraction can then
 
 Extracting category names is done using the following code:
 
-```{r eval = FALSE}
+```{r}
 topic_names <- read_html('http://www.lemonde.fr/') %>% 
 html_nodes("#navigation-generale li") %>% 
 html_attr("class") %>% 
@@ -51,7 +54,7 @@ Before extracting the content of an article it is necessary to have the url of t
 
 Extracting the urls of the articles of a webpage is done using the following.
 
-```{r eval = FALSE}
+```{r}
 url_path <- 'http://www.lemonde.fr/politique/1.html'
 url_path <- read_html(url_path)
 url <- html_nodes(url_path, ".grid_12.alpha.enrichi .grid_11.conteneur_fleuve.omega h3 a") %>% 
@@ -64,7 +67,7 @@ The attribute _href_ is extracted for all elements having the stucture described
 
 The content of an article is the central information of the corpus, after extracting the url it is possible to have the content of the article. Doing so require to find the correct css structure leading to the content for every articles. Some trials and errors are needed at this step. The solution found is the following:
 
-```{r eval = FALSE}
+```{r}
 articleUrl <- read_html(articleUrl)
 first_par <- html_nodes(articleUrl, "div[itemprop=articleBody] .taille_courante") %>% html_text() %>% paste(collapse = ' ')
 other_par <- html_nodes(articleUrl, "div[itemprop=articleBody] p:not(.lire)") %>% html_text() %>% paste(collapse = ' ')
@@ -77,7 +80,7 @@ Two differents css structures are used to extract the entire content of the text
 
 When it is available, the author of the article is also extracted from the webpage. 
 
-```{r eval = FALSE}
+```{r}
 author <- html_nodes(articleUrl, ".signature_article span") %>% html_text()
 ```
 
@@ -98,7 +101,9 @@ The resulting corpus contains the article content and some metadata. It has 2404
 
 The text and the subcategory are the two variables that will be used. The other features may be of use for other studies. 
 
---- 
+The complete code to get the corpus can be found [here](https://github.com/MathieuMarauri/LeMonde/blob/master/code/1%20-%20scrapping.R). 
+
+
 ## Cleaning the corpus
 
 The corpus created in the previous section contains raw text data. NLP tasks should be done on pre-processed text. Raw text yields poor results because it usually contains lots of non-informative words. Those words are called stopwords. LDA tries to find latent topic hidden in a corpus of text, it basically tries to find groups of words that appears in the same document and not in others. It can be easily understood that english words like `a`, `the` or `are` will not help the model find good topics. Hence it is necessary to properly clean the corpus from all these stopwords. Several methods can be used to remove stopwords, 5 different methods are presented here and tested on the corpus. Besides, a mix of several methods is presented as a 6th method. These approaches are compared with respect to the diminution of the features space (the number of words) and th reduction of the sparsity of the document term matrix. The performance of the LDA model based on the different cleaned corpus is also taken inton account to compare the stopwords removal methods. Such a comparison is a good way to discover other approach than the classic bag-of-words one and to see how it can impact resuld of LDA modeling.
@@ -143,7 +148,7 @@ Lemmatization relies on part-of-speech tagging to properly reduce a word inflect
 
 The complete list of tags in the treetagger is displayed in the following table.
 
-```{r echo = FALSE}
+```{r echo = FALSE, eval = TRUE}
 library('knitr')
 library('kableExtra')
 library('data.table')
@@ -160,7 +165,7 @@ Knowing the part-of-speech of the word to lemmatize, the algorithm uses a dictio
 
 The entire pre-procesing is done in one call to treetagger. It tokenizes then lemmatize and tag the corpus. The call has been encapsulated in a function for convenience mainly to have a proper structure in the output. Treetagger is installed as a dependency and it is called using a shell command. The resulting text file is imported into R and returned as a table. 
 
-```{r eval = FALSE}
+```{r}
 #' This function lemmatizes a text using treetagger.
 #' 
 #' @param text a raw character vector of length one.
@@ -204,4 +209,21 @@ This method leads to a reduction of 1% of the feature space.
 
 #### TF1
 
-Term-frequency is the number of times a term appears in the corpus. We consider here words appearing only once in the corpus as being non-informative. 
+Term-frequency is the number of times a term appears in the corpus. We consider here words appearing only once in the corpus as being non-informative. Indeed as the objective is to find hidden topics in the corpus, words appearing only once will not help in finding groups of co-occuring words in documents. Such a word can carry a lot of information in itself but since it will not contribute in revealing a topic it is safe to remove it. The threshold of 1 is used because it is to justify and leads to a great reduction of the feature space. 
+
+The choice of using TF1 can be visualy justify with an elbow like method. 
+
+```{r echo = FALSE, eval = TRUE}
+library('data.table')
+library('ggplot2')
+article_word <- readRDS('data/article_word.rds')
+word_count <- article_word[, .(tf = .N), by = word]
+ggplot(data = word_count[, .(count = .N), by = tf][tf <= 25][order(-count)], mapping = aes(x = tf, y = count)) + 
+  geom_point(size = 2) +
+  geom_segment(mapping = aes(xend = tf, yend = 0), show.legend = FALSE) + 
+  scale_x_continuous(breaks = seq(1, 25, by = 1)) + 
+  labs(x = 'Term-frequency', y = '', title = 'Number of words by term-frequency lower than 25') + 
+  theme_bw()
+```
+
+TF1 clearly is ahead in terms of number of words. TF2 may also be used with the same reasons used for TF1. 

@@ -340,8 +340,18 @@ This method leads to a reduction of 1% of the feature space.
 
 Term-frequency is the number of times a term appears in the corpus. We consider here words appearing only once in the corpus as being non-informative. Indeed as the objective is to find hidden topics in the corpus, words appearing only once will not help in finding groups of co-occuring words in documents. Such a word can carry a lot of information in itself but since it will not contribute in revealing a topic it is safe to remove it. The threshold of 1 is used because it is to justify and leads to a great reduction of the feature space. 
 
-The choice of using TF1 can be visualy justify with an elbow like method. 
+The choice of using TF1 can be visualy justify with an elbow like method. The greatest gap clearly is found between TF1 and TF2.  
 
-<img src="README_files/figure-html/unnamed-chunk-9-1.png" style="display: block; margin: auto;" />
+<img src="README_files/figure-html/tf_plot-1.png" style="display: block; margin: auto;" />
 
-TF1 clearly is ahead in terms of number of words. TF2 may also be used with the same reasons used for TF1. 
+Unike the last two appraoches, TF1 reduces the feature space by up to 45%. 
+
+#### IDF
+
+With the inverse-document-frequency we can remove words that appear only in one document or in every document. The idea behind this approach is the same as before: removing words that will not help find hidden topics. The inverse-document-frequency for a given _t_ is the log of the nuumber of documents divided by the number of document in which _t_ appears. The only words that appear in every document are _le_ and _de_ (french for _the_ and _of_ respectively). 
+
+The IDF method removes 51% of words. 
+
+#### TF-IDF
+
+The term-frequency-inverse_document-frequency of a word in a document is the product of TF of the word in that document and the IDF of the word. TF-IDF reflects the importance of a word to a document. The 

@@ -147,10 +147,6 @@ ggplot(data = word_count[, .(count = .N), by = tf][tf <= 25][order(-count)], map
     labs(x = 'Term-frequency', y = '', title = 'Number of words by term-frequency lower than 25') + 
     theme_bw()
 
-# saving plot for readme
-dev.copy(png, 'report/tfPlot.png')
-dev.off()
-
 word_count <- word_count[tf == 1, .(word)]
 article_word_count <- article_word[, .(tf = .N), by = list(article_id, word)]
 article_word_count <- article_word_count[!word_count, on = 'word']
@@ -222,7 +218,7 @@ article_word_count[, tfidf := count * idf]
 word_tfidf <- article_word_count[, .(tfidf = mean(tfidf)), by = word][order(tfidf)]
 
 # The first words are removed (this number is obtained looking at the table
-# and considering a threshold above which words carry inforamtion)
+# and considering a threshold under which words carry inforamtion)
 word_tfidf <- head(word_tfidf, 100)
 
 # remove words from corpus

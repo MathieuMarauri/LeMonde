@@ -1,9 +1,10 @@
 
 # A description analysis is performed on the corpus. The goal is to have a
 # better understanding of the data that was extracted. The category and the
-# subcategory are the two features that can be used as a strating point to
-# decide the apriori number of topics in the LDA method. Extracting the top
-# words will be done on the pre-processed corpora.
+# subcategory are the two features that can be used as a starting point to
+# decide the a priori number of topics in the LDA method. Extracting the top
+# words will be done on the pre-processed corpora (for the baseline and the
+# mix).
 
 # Packages ----------------------------------------------------------------
 
@@ -28,11 +29,23 @@ articles_category <- articles[, .(id, category)]
 # The number of articles by category
 category <- articles_category[, .(count = .N), by = category]
 
+# Number of articles by category (duplicating articles with several categories)
+category_simple <- articles[, cbind(category = strsplit(category, '/'), .SD), by = 'id']$category
+category_simple <- as.data.table(category_simple)[, .(count = .N), by = category_simple]
+
+ggplot(data = category_simple, mapping = aes(x = reorder(category_simple, count), y = count)) + 
+  geom_segment(mapping = aes(xend = category_simple, yend = 0)) + 
+  geom_point() + 
+  labs(x = '', y = '', title = 'Number of articles by category on lemonde.fr', subtitle = 'Articles in several categories are duplicated') +
+  coord_flip() +
+  theme_bw()
+
+
 # How many articles are in more than one category? LDA is a fuzzy clustering
 # method so we expect these articles to have high probabilities for several
 # topics.
 articles_category[, nb_category := stri_count_fixed(category, '/') + 1]
-nb_category <- articles_category[, .(count = .N, percent = .N / nrow(articles_category)), by = nb_category][order(-count)]
+articles_category[, .(count = .N, percent = .N / nrow(articles_category)), by = nb_category][order(-count)]
 # About 20% of all articles have been classified into more than one category on
 # the website. 
 
@@ -45,9 +58,9 @@ category[, (categories_names) := lapply(X = categories_names,
                                                                             pattern = x))]
 
 # number of articles associated with at least two categories by category
-category_comb <- colSums(category[stri_detect_fixed(category, '/'), 
-                                  lapply(.SD, function(x) x * count), 
-                                  .SDcols = categories_names])
+colSums(category[stri_detect_fixed(category, '/'), 
+                 lapply(.SD, function(x) x * count), 
+                 .SDcols = categories_names])
 # articles with the sport category are the ones that are the less often
 # associated with another category. The categories economie, politique and idees
 # are the ones that are most often associated with another category.
@@ -101,5 +114,10 @@ rm(subcategory, articles_subcategory)
 # Now lets look at the top words by category/subcategory. To do so the cleaned
 # corpora are used. For each stopwords removal methods the top words will be
 # extracted.
+
+
+
+
+
 
 

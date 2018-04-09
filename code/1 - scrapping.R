@@ -13,7 +13,7 @@
 library('rvest')
 library('stringi')
 library('data.table')
-source('code/functions/1 - scrapping functions.R')
+source('code/helpers/1 - scrapping functions.R')
 
 
 # category names -------------------------------------------------------------

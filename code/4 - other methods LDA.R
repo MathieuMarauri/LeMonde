@@ -8,7 +8,7 @@
 library('data.table')
 library('stringi')
 library('ggplot2')
-source('code/functions/LDA analysis.R')
+source('code/helpers/LDA analysis.R')
 
 
 # Corpus ------------------------------------------------------------------

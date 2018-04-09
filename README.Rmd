@@ -1,27 +1,35 @@
 ---
-output: html_document
+title: "LeMonde articles topic modeling with R"
+output:
+  html_document:
+    keep_md: true
+    theme: readable
+    highlight: tango
 ---
 
+```{r initial_chunk, echo = FALSE, warning = FALSE, message = FALSE}
+library("knitr")
+opts_chunk$set(echo = TRUE, eval = FALSE, warning = FALSE, message = FALSE, cache = TRUE, fig.align = 'center', dpi = 300, out.width = '75%')
+```
 
-# LeMonde topic modeling
  
 ## Introduction
   
-  This project's objective is to apply a topic modeling method on a corpus of documents. The goal is to test the Latent Dirichlet Method (LDA) and to see how it performs on a corpus pre-processed with different stopwords removal methods. The corpus is built using news articles from [lemonde](http://www.lemonde.fr/), a french newspaper. The goal is to analyze the results of the LDA model with regard to the website categories in which the articles were. The LDA model needs an apriori, user defined, number of topics as input. Knowing the category in which the article was on the website is a start point to decide the number of topics to ask to the model and also an indicator of performance of the model: are the articles most associated with the topic corresponding to their category on the website. The entire process -scrapping, pre-processing and modelization- is done in R. 
+  This project's objective is to apply a topic modeling method on a corpus of documents. The goal is to test the Latent Dirichlet Method (LDA) and to see how it performs on a corpus pre-processed with different stopwords removal methods. The corpus is built using news articles from [lemonde](http://www.lemonde.fr/), a french newspaper. The goal is to analyze the results of the LDA model with regard to the website categories in which the articles were. The LDA model needs an apriori, user defined, number of topics as input. Knowing the category in which the article was on the website is a start point to decide the number of topics and also an indicator of performance of the model: are the articles most associated with the topic corresponding to their category on the website. The entire process -scrapping, pre-processing and modelization- is done in R. 
 
 
 ## Creation of the corpus
 
 The corpus is created using news articles from the website of a french newspaper. The articles are scrapped using the `rvest` package. The content of the article is extracted, along with the title, the author, the date of publication, the category on the website in which the article is and the subactegory found in the url. The resulting corpus contains 2404 articles published between the 11th of July and the 13th of October of 2017. There were extracted the 13th of October. 
 
-```{r eval = FALSE}
+```{r}
 install.packages('rvest')
 library('rvest')
 ```
 
 Other packages are used in the scrapping process. 
 
-```{r eval = FALSE}
+```{r}
 library('data.table') # to manipulate table 
 library('stringi') # to manipulate strings
 ```
@@ -36,7 +44,7 @@ The first step is to extract the categories name so that the extraction can then
 
 Extracting category names is done using the following code:
 
-```{r eval = FALSE}
+```{r}
 topic_names <- read_html('http://www.lemonde.fr/') %>% 
 html_nodes("#navigation-generale li") %>% 
 html_attr("class") %>% 
@@ -53,7 +61,7 @@ Before extracting the content of an article it is necessary to have the url of t
 
 Extracting the urls of the articles of a webpage is done using the following.
 
-```{r eval = FALSE}
+```{r}
 url_path <- 'http://www.lemonde.fr/politique/1.html'
 url_path <- read_html(url_path)
 url <- html_nodes(url_path, ".grid_12.alpha.enrichi .grid_11.conteneur_fleuve.omega h3 a") %>% 
@@ -79,7 +87,7 @@ Two differents css structures are used to extract the entire content of the text
 
 When it is available, the author of the article is also extracted from the webpage. 
 
-```{r eval = FALSE}
+```{r}
 author <- html_nodes(articleUrl, ".signature_article span") %>% html_text()
 ```
 
@@ -105,16 +113,16 @@ The complete code to get the corpus can be found [here](https://github.com/Mathi
 
 ## Cleaning the corpus
 
-The corpus created in the previous section contains raw text data. NLP tasks should be done on pre-processed text. Raw text yields poor results because it usually contains lots of non-informative words. Those words are called stopwords. LDA tries to find latent topic hidden in a corpus of text, it basically tries to find groups of words that appears in the same document and not in others. It can be easily understood that english words like `a`, `the` or `are` will not help the model find good topics. Hence it is necessary to properly clean the corpus from all these stopwords. Several methods can be used to remove stopwords, 5 different methods are presented here and tested on the corpus. Besides, a mix of several methods is presented as a 6th method. These approaches are compared with respect to the diminution of the features space (the number of words) and th reduction of the sparsity of the document term matrix. The performance of the LDA model based on the different cleaned corpus is also taken inton account to compare the stopwords removal methods. Such a comparison is a good way to discover other approach than the classic bag-of-words one and to see how it can impact resuld of LDA modeling.
+The corpus created in the previous section contains raw text data. NLP tasks should be done on pre-processed text. Raw text yields poor results because it usually contains lots of non-informative words. Those words are called stopwords. LDA tries to find latent topic hidden in a corpus of text, it basically tries to find groups of words that appears in the same documents and not in others. It can be easily understood that english words like `a`, `the` or `is` will not help the model find good topics (`un`, `le` and `est` in french). Hence it is necessary to properly clean the corpus from all these stopwords. Several methods can be used to remove stopwords, 5 different methods are presented here and tested on the corpus. Besides, a mix of several methods is presented as a 6th method. These approaches are compared with respect to the diminution of the features space (the number of words) and the reduction of the sparsity of the document term matrix. The performance of the LDA model based on the different cleaned corpus is also taken into account to compare the stopwords removal methods. Such a comparison is a good way to discover other approach than the classic bag-of-words one and to see how it can impact the resuls of LDA modeling.
 
 The methods exposed here are:
 
 - bag-of-words: a list of stopwords is defined ad hoc and used to clean the corpus.
-- pos tags: words with certain part-of-speech are removed. 
+- pos tags: words with certain part-of-speech tags are removed. 
 - TF1: words with term frequency equal to 1 are removed.
-- IDF: words with IDF equal to 0 or to the max possible value are removed. 
-- TF-IDF: words with low term-frequency-inverse-term-frequency are removed.
-- mix: part-of-speech and IDF.
+- IDF: words with inverse document frequency equal to 0 or to the max possible value are removed. 
+- TF-IDF: words with low term-frequency-inverse-document-frequency are removed.
+- mix: part-of-speech + IDF.
 
 
 ### Pre-processing
@@ -123,9 +131,9 @@ Before any stopwords removal approach is applied to the corpus, it is tokenized,
 
 #### Tokenization
 
-Tokenization is a necessary step in any tasks involving text data. It means dividing sentences into a vector of tokens. Usually a token is a word, it can also be a punctuation mark. It is a document unit. Tokenization is mainly performed to divide a document into vectors of tokens representing one unit but it can also be n-grams or groups of n units. 
+Tokenization is a necessary step in any tasks involving text data. It means dividing sentences into a vector of tokens. Usually a token is a word, it can also be a punctuation mark. It is a document unit. Tokenization is mainly performed to divide a document into vectors of tokens representing one unit but it can also be n-grams a.k.a groups of n units. 
 
-The following sentence, `A short sentence to tokenize`, will become this vector `A, short, sentence, to, tokenize` after being tokenized. If bigrams are used then the vector is `A short, short sentence, sentence to, to tokenize`.
+The following sentence, `A short sentence to tokenize`, will become this vector `{A, short, sentence, to, tokenize}` after being tokenized. If bigrams are used then the vector is `{A short, short sentence, sentence to, to tokenize}`.
 
 **_How does tokenization work?_**
 
@@ -133,17 +141,19 @@ The goal is to split a document into tokens. To do so heuristics are used. Token
 
 After being tokenized the corpus can be transformed to a document-term-matrix. Documents are on the rows, tokens (or terms) on the columns and each cell represents the number of times the term appears in the document. Words constitute the features of the dataset. 
 
-This newly created dataset has to be cleaned as it would be before any modeling is done on more usual data. Here cleaning means reducing the feature space by grouping tokens that are derive from the same one and removing non-informative words. The first part can be achieved with lemmatization, the second with stopwords removal methods. 
+This newly created dataset has to be cleaned as it would be before any modeling is done on more usual data. Here, cleaning means reducing the feature space by grouping tokens that are derived from the same one and removing non-informative words. The first part can be achieved with lemmatization, the second with stopwords removal methods. 
 
-The words _word, token, term and feature_ can be used to represent the same idea. 
+The words _word, token, term and feature_ can be used to represent the same idea in the context of a document-term matrix.
 
 #### Lemmatization
 
-Lemmatization is the process of reducing a word to its lemma, its dictionary form. The lemma is the canonical form of a word. Different inflections of the verb _to have_ may be  _having, has, haven_ is _have_. Lemmatisation reduces the feature space by reducing inflections of the same words to its dictionary form. 
+Lemmatization is the process of reducing a word to its lemma, its dictionary form. The lemma is the canonical form of a word. Different inflections of the verb _to have_ may be _having, has, haven_. Lemmatisation reduces the feature space by reducing inflections of the same words to its dictionary form. 
+
+Another process called stemming achieves basically the same result. It reduces words to their root stem. Stemming uses pre-defined rules to strip off common suffixes and does not always provide "real" words e.g. the french word `table` (table) would become `tabl`. 
 
 **_How does lemmatization work?_ **
 
-Lemmatization relies on part-of-speech tagging to properly reduce a word inflection to its dictionary form. It will not treat a word the same it treats a verb. For example the word _meeting_ in _I have a meeting tomorrow_ will be kept as is whereas in _we are meeting him tomorrow_ it will be reduce to _meet_. The part-of-speech tagging is done using decidin trees to estimate the transition probability in the Markov model. The paper explaining the construction of such a tagger can be found [here](http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/data/tree-tagger1.pdf). The training data is obtained from the Penn-Teebank corpus.  
+Lemmatization relies on part-of-speech tagging to properly reduce a word inflection to its dictionary form. It will not treat a word the same it treats a verb. For example the word _meeting_ in _I have a meeting tomorrow_ will be kept as is whereas in _we are meeting him tomorrow_ it will be reduce to _meet_. The part-of-speech tagging is done using decision trees to estimate the transition probability in a Markov model. The paper explaining the construction of such a tagger can be found [here](http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/data/tree-tagger1.pdf). The training data is obtained from the Penn-Teebank corpus.  
 
 The complete list of tags in the treetagger is displayed in the following table.
 
@@ -162,9 +172,9 @@ Knowing the part-of-speech of the word to lemmatize, the algorithm uses a dictio
 
 #### The code
 
-The entire pre-procesing is done in one call to treetagger. It tokenizes then lemmatize and tag the corpus. The call has been encapsulated in a function for convenience mainly to have a proper structure in the output. Treetagger is installed as a dependency and it is called using a shell command. The resulting text file is imported into R and returned as a table. 
+The entire pre-procesing is done in one call to treetagger. It tokenizes then lemmatizes and tags the corpus. The call has been encapsulated in a function for convenience mainly to have a proper structure in the output. Treetagger is installed as a dependency and it is called using a shell command. The resulting text file is imported into R and returned as a table. 
 
-```{r eval = FALSE}
+```{r}
 #' This function lemmatizes a text using treetagger.
 #' 
 #' @param text a raw character vector of length one.
@@ -196,7 +206,7 @@ Words left in the dataset are now cleaned and tagged with their part-of-speech. 
 
 #### Bag-of-words
 
-Non-informative words are removed using a predefined list of stopwords. The list is created ad hoc, independantly of the context of the study. The list can be found [here](https://github.com/MathieuMarauri/LeMonde/blob/master/data/dtm/stopwords_fr.txt). Some words were added after some test on the data, mostly the most frequent words that carried no useful meaning. This method is pretty straighforward and only requires a predefined list of words. It is easy to use and can be applied evenly on all datasets. On the other hand finding such a list can be difficult in languages other than english and constructing one yourself is a pain. Besides, it does not depend on the corpus studied. 
+Non-informative words are removed using a predefined list of stopwords. The list is created ad hoc, independantly of the context of the study. The list can be found [here](https://github.com/MathieuMarauri/LeMonde/blob/master/data/dtm/stopwords_fr.txt). Some words were added after some test on the data, mostly the most frequent words that carried no useful meaning. This method is pretty straighforward and only requires a predefined list of words. It is easy to use and can be applied evenly on all datasets. On the other hand finding such a list can be difficult in languages other than english and constructing one yourself is a pain.
 
 This method leads to less than 1% of words removed. 
 
@@ -208,11 +218,11 @@ This method leads to a reduction of 1% of the feature space.
 
 #### TF1
 
-Term-frequency is the number of times a term appears in the corpus. We consider here words appearing only once in the corpus as being non-informative. Indeed as the objective is to find hidden topics in the corpus, words appearing only once will not help in finding groups of co-occuring words in documents. Such a word can carry a lot of information in itself but since it will not contribute in revealing a topic it is safe to remove it. The threshold of 1 is used because it is to justify and leads to a great reduction of the feature space. 
+Term-frequency is the number of times a term appears in the corpus. We consider here words appearing only once in the corpus as being non-informative. Indeed as the objective is to find hidden topics in the corpus, words appearing only once will not help in finding groups of co-occuring words in documents. Such a word can carry a lot of information in itself but since it will not contribute in revealing a topic it is safe to remove it. The threshold of 1 is used here because it is straighforward and leads to a great reduction of the feature space.
 
-The choice of using TF1 can be visualy justify with an elbow like method. The greatest gap clearly is found between TF1 and TF2.  
+The choice of using TF1 can be visualy justified with an elbow like method. The greatest gap is clearly found between TF1 and TF2.  
 
-```{r tf_plot, echo = FALSE, eval = TRUE, fig.align = 'center'}
+```{r tf_plot, echo = FALSE, eval = TRUE}
 library('data.table')
 library('ggplot2')
 article_word <- readRDS('data/article_word.rds')
@@ -229,7 +239,9 @@ Unike the last two appraoches, TF1 reduces the feature space by up to 45%.
 
 #### IDF
 
-With the inverse-document-frequency we can remove words that appear only in one document or in every document. The idea behind this approach is the same as before: removing words that will not help find hidden topics. The inverse-document-frequency for a given _t_ is the log of the nuumber of documents divided by the number of document in which _t_ appears. The only words that appear in every document are _le_ and _de_ (french for _the_ and _of_ respectively). 
+With the inverse-document-frequency we can remove words that appear only in one document or in every document. The idea behind this approach is the same as before: removing words that will not help find hidden topics. The inverse-document-frequency for a given term _t_ is the log of the number of documents divided by the number of document in which _t_ appears. The only words that appear in every document are _le_ and _de_ (french for _the_ and _of_ respectively). Many words appear in only one document. 
+
+The IDF method removes basically the same words as the TF1 method as words appearing only once in the corpus appear only in one document and are then removed by the IDF method. The difference is that IDF can remove words that appear more than one time but only in one document. Such words are probably really meaningful to the document they belong to but again are of no use to construct hidden topics. 
 
 The IDF method removes 51% of words. 
 

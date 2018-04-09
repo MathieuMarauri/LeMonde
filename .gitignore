@@ -1,8 +1,16 @@
+
+# R project files
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
 LeMonde.Rproj
+
+# documentation folder
 doc
+
+# test file
 code/test.R
+
+# readme output
 README.html

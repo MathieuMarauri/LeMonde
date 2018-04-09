@@ -18,6 +18,7 @@
 library('data.table')
 library('stringi')
 library('ggplot2')
+library('tidytext')
 source('code/helpers/2 - pre-processing functions.R')
 
 
@@ -69,7 +70,7 @@ article_word_count <- article_word[, .(count = .N), by = list(article_id, word)]
 nb_words_baseline <- uniqueN(article_word_count$word)
 
 # cast to document-term-matrix
-(dtm_baseline <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_baseline <- cast_dtm(data = article_word_count, 
                                     document = article_id, 
                                     term = word, 
                                     value = count))
@@ -94,7 +95,7 @@ article_word_count <- article_word_count[!stopwords, on = 'word']
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-(dtm_bow <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_bow <- cast_dtm(data = article_word_count, 
                                document = article_id, 
                                term = word, 
                                value = count))
@@ -121,7 +122,7 @@ article_word_count <- article_word[pos %in% c('ADJ', 'ADV', 'NOM', 'NAM') |
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-(dtm_pos <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_pos <- cast_dtm(data = article_word_count, 
                                document = article_id, 
                                term = word, 
                                value = count))
@@ -155,7 +156,7 @@ article_word_count <- article_word_count[!word_count, on = 'word']
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-(dtm_tf1 <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_tf1 <- cast_dtm(data = article_word_count, 
                                document = article_id, 
                                term = word, 
                                value = tf))
@@ -189,7 +190,7 @@ article_word_count <- article_word_count[!word_idf, on = 'word']
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-(dtm_idf <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_idf <- cast_dtm(data = article_word_count, 
                                document = article_id, 
                                term = word, 
                                value = count))
@@ -228,7 +229,7 @@ article_word_count <- article_word_count[!word_tfidf, on = 'word']
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-(dtm_tfidf <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_tfidf <- cast_dtm(data = article_word_count, 
                                  document = article_id, 
                                  term = word, 
                                  value = count))
@@ -258,7 +259,7 @@ article_word_count <- article_word_count[!word_idf, on = 'word']
 (1 - uniqueN(article_word_count$word) / nb_words_baseline) * 100
 
 # cast to document-term-matrix
-(dtm_mix <- tidytext::cast_dtm(data = article_word_count, 
+(dtm_mix <- cast_dtm(data = article_word_count, 
                                document = article_id, 
                                term = word, 
                                value = count))

@@ -14,10 +14,20 @@ library("wordcloud") # wordcloud visualisation
 source('code/helpers/3 - descriptive analysis.R')
 
 
+# Ggplot theme ----------------------------------------------------------------------
+
+# default theme
+theme_set(theme_bw(base_size = 15))
+
+
 # Corpus ------------------------------------------------------------------
 
 # import the corpus
 articles <- readRDS('data/articles.rds')
+
+# duplicate articles that are in several categories
+articles_duplicated <- articles[, cbind(category_simple = strsplit(category, '/'), .SD), 
+                                by = 'id']
 
 
 # Category ----------------------------------------------------------------
@@ -31,7 +41,7 @@ articles_category <- articles[, .(id, category)]
 category <- articles_category[, .(count = .N), by = category]
 
 # number of articles by category (duplicating articles with several categories)
-category_simple <- articles[, cbind(category = strsplit(category, '/'), .SD), by = 'id']$category
+category_simple <- articles_duplicated$category
 category_simple <- as.data.table(category_simple)[, .(count = .N), by = category_simple]
 
 # plot
@@ -41,8 +51,7 @@ ggplot(data = category_simple, mapping = aes(x = reorder(category_simple, count)
   labs(x = '', y = '', 
        title = 'Number of articles by category on lemonde.fr', 
        subtitle = 'Articles in several categories are duplicated') +
-  coord_flip() +
-  theme_bw()
+  coord_flip()
 
 # How many articles are in more than one category? LDA is a fuzzy clustering method so we
 # expect these articles to have high probabilities for several topics.
@@ -61,8 +70,7 @@ ggplot(data = articles_category,
   geom_text() + 
   labs(x = 'Number of categories by article', 
        y = 'Percentage of articles', 
-       title = 'Percentage of articles classified in several categories.') +
-  theme_bw()
+       title = 'Percentage of articles classified in several categories.')
 # About 20% of all articles have been classified into more than one category on
 # the website. 
   
@@ -92,8 +100,7 @@ ggplot(data = articles_category, mapping = aes(x = category, y = count)) +
   geom_segment(mapping = aes(xend = category, yend = 0)) + 
   labs(x = '', y = '', 
        title = 'Number of articles associated with at least two categories by category') +
-  coord_flip() +
-  theme_bw()
+  coord_flip()
 # Articles with the sport category are the ones that are the less often associated with
 # another category. The categories economie, politique and idees are the ones that are
 # most often associated with another category. International and societe are also often
@@ -112,8 +119,8 @@ rm(categories_names, category, articles_category, category_simple)
 # keep only id, category and subcategory
 articles_subcategory <- articles[, .(id, category, subcategory)]
 
-# indicators of the repartition of articles by category/subcategory 
-subcategory <- articles_subcategory[, .(count = .N, 
+# repartition of articles by category/subcategory 
+subcategory <- articles_duplicated[, .(count = .N, 
                                         total_percent = .N / nrow(articles)), 
                                     by = list(category, subcategory)]
 
@@ -129,18 +136,25 @@ subcategory[, c('cat_percent', 'cat_nb', 'subcat_count') := list(count / sum(cou
                                                                  sum(count)),
             by = subcategory]
 
-# the sport category is the one that have the greatest number of subcategories (34) but
-# besides the first (with the highest number of categories) 12 that are not only related
-# to sport, the others are just a particular sport. On the other side, idees is the
-# category with the lowest number of different subcateories, not taking into account
-# multiple categories such as politique/culture for example. The planete category is
-# associated with subcategories that are found in many different categories. The first
-# subcategories in terms of articles count that are not identical to any category are
-# europe, police-justice and afrique. les-decodeurs, societe and football are equal at the
-# 4th place.
+# plot
+ggplot(data = subcategory, 
+       mapping = aes(x = reorder(category, -subcat_nb), 
+                     y = reorder(subcategory, -cat_nb), 
+                     fill = count)) + 
+  geom_tile() + 
+  labs(x = '', y = '', 
+       title = 'Number of articles by couple category/subcategory.',
+       subtitle = 'Articles in several categories are duplicated')
+
+# The economie category is the one that have the greatest number of subcategories (42)
+# followed by sport (37). The economy category only has 4 sub-categories that are unique
+# to it. The other sub-categories can be found under at least one other category. Sport on
+# the other hand has 18 sub-categories that are only related to sport (mainly specific
+# sports). The categories with the least number of sub-categories are planete and idea
+# with respectively 22 and 24 sub-categories.
 
 # clean environnement
-rm(subcategory, articles_subcategory)
+rm(subcategory, articles_subcategory, articles_duplicated)
 
 
 # Text --------------------------------------------------------------------
@@ -149,19 +163,59 @@ rm(subcategory, articles_subcategory)
 # the cleaned corpora are used. For each stopwords removal methods the top words will be
 # extracted and a wordcloud with the top 100 words is done.
 
-# Baseline
+# Corpus
 
-# import baseline dtm
-dtm_baseline <- readRDS('data/dtm/dtm_baseline.rds')
+# import word count by article (baseline)
+article_word <- readRDS('data/article_word.rds')
 
 # wordcloud 
-plotWordcloud(dtm = dtm_baseline)
-# as expected the words that appear the most are non informative words (le, de, cardinals,
-# avoir, un , ...)
+wordcloud_data <- article_word[, .(count = .N), by = word][order(-count)]
+wordcloud(
+  words = wordcloud_data$word, 
+  freq = wordcloud_data$count,
+  min.freq = 1,
+  max.words = 200, 
+  random.order = FALSE, 
+  rot.per = 0.35, 
+  colors = brewer.pal(8, "Dark2")
+)
+# As it is expected without removing stopwords the words that appear the most are non
+# informative words (le, de, cardinals, avoir, un , ...)
 
 # Plot top words by category
 
-# add category information to the document term matrix
+# add category to word count
+article_word <- merge(x = article_word[, article_id := as.numeric(article_id)], 
+                      y = articles_duplicated, 
+                      by.x = 'article_id',
+                      by.y = 'id', 
+                      allow.cartesian = TRUE)
+
+# top 10 words by category
+article_word_top10 <- article_word[, .(count = .N), by = list(category_simple, word)]
+article_word_top10 <- article_word_top10[order(-count), head(.SD, 10), by = category_simple]
+article_word_top10[, word := reorder(word, count)]
+
+# plot
+ggplot(data = article_word_top10, mapping = aes(x = word, y = count)) +
+  geom_point(show.legend = FALSE) + 
+  geom_segment(mapping = aes(xend = word, yend = 0), show.legend = FALSE) + 
+  facet_wrap(~ category_simple, scales = "free") + 
+  coord_flip()
+
+# wordcloud 
+wordcloud_data <- article_word[, .(count = .N), by = list(category, word)][order(-count)]
+par(mfrow=c(1, 2))
+wordcloud(
+  words = wordcloud_data$word, 
+  freq = wordcloud_data$count,
+  min.freq = 1,
+  max.words = 200, 
+  random.order = FALSE, 
+  rot.per = 0.35, 
+  colors = brewer.pal(8, "Dark2")
+)
+
 baseline_dt <- as.matrix(dtm_baseline)
 baseline_dt <- data.table(id = as.integer(rownames(baseline_dt)), baseline_dt)
 baseline_dt <- merge(

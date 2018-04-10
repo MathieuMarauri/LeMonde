@@ -11,6 +11,7 @@ library('data.table') # datast manipulation
 library('stringi') # string manipulation
 library('ggplot2') # data visualisation
 library("wordcloud") # wordcloud visualisation
+library('tidytext') # tidy document term matrix
 source('code/helpers/3 - descriptive analysis.R')
 
 
@@ -28,6 +29,9 @@ articles <- readRDS('data/articles.rds')
 # duplicate articles that are in several categories
 articles_duplicated <- articles[, cbind(category_simple = strsplit(category, '/'), .SD), 
                                 by = 'id']
+
+# table with article id and associated category to compute counts by category
+categories <- articles_duplicated[, .(id = id, category = category_simple)]
 
 
 # Category ----------------------------------------------------------------
@@ -154,93 +158,6 @@ ggplot(data = subcategory,
 # with respectively 22 and 24 sub-categories.
 
 # clean environnement
-rm(subcategory, articles_subcategory, articles_duplicated)
-
-
-# Text --------------------------------------------------------------------
-
-# Now lets look at the top words of the corpus and then by category/subcategory. To do so
-# the cleaned corpora are used. For each stopwords removal methods the top words will be
-# extracted and a wordcloud with the top 100 words is done.
-
-# Corpus
-
-# import word count by article (baseline)
-article_word <- readRDS('data/article_word.rds')
-
-# wordcloud 
-wordcloud_data <- article_word[, .(count = .N), by = word][order(-count)]
-wordcloud(
-  words = wordcloud_data$word, 
-  freq = wordcloud_data$count,
-  min.freq = 1,
-  max.words = 200, 
-  random.order = FALSE, 
-  rot.per = 0.35, 
-  colors = brewer.pal(8, "Dark2")
-)
-# As it is expected without removing stopwords the words that appear the most are non
-# informative words (le, de, cardinals, avoir, un , ...)
-
-# Plot top words by category
-
-# add category to word count
-article_word <- merge(x = article_word[, article_id := as.numeric(article_id)], 
-                      y = articles_duplicated, 
-                      by.x = 'article_id',
-                      by.y = 'id', 
-                      allow.cartesian = TRUE)
-
-# top 10 words by category
-article_word_top10 <- article_word[, .(count = .N), by = list(category_simple, word)]
-article_word_top10 <- article_word_top10[order(-count), head(.SD, 10), by = category_simple]
-article_word_top10[, word := reorder(word, count)]
-
-# plot
-ggplot(data = article_word_top10, mapping = aes(x = word, y = count)) +
-  geom_point(show.legend = FALSE) + 
-  geom_segment(mapping = aes(xend = word, yend = 0), show.legend = FALSE) + 
-  facet_wrap(~ category_simple, scales = "free") + 
-  coord_flip()
-
-# wordcloud 
-wordcloud_data <- article_word[, .(count = .N), by = list(category, word)][order(-count)]
-par(mfrow=c(1, 2))
-wordcloud(
-  words = wordcloud_data$word, 
-  freq = wordcloud_data$count,
-  min.freq = 1,
-  max.words = 200, 
-  random.order = FALSE, 
-  rot.per = 0.35, 
-  colors = brewer.pal(8, "Dark2")
-)
-
-baseline_dt <- as.matrix(dtm_baseline)
-baseline_dt <- data.table(id = as.integer(rownames(baseline_dt)), baseline_dt)
-baseline_dt <- merge(
-  x = baseline_dt,
-  y = articles[, .(id, category)],
-  by = 'id'
-)
-baseline_dt[, id := NULL]
-
-# sum number of words by category
-baseline_dt <- baseline_dt[, lapply(X = .SD, FUN = sum), by = category]
-baseline_dt <- melt(
-  data = baseline_dt, 
-  id.vars = 'category', 
-  variable.name = 'word', 
-  value.name = 'frequency'
-)
-
-baseline_dt <- baseline_dt[order(-frequency), head(.SD, 10), by = category]
-baseline_dt[, term := reorder(word, frequency)]
-
-ggplot(data = baseline_dt, mapping = aes(x = word, y = frequency)) +
-  geom_point(show.legend = FALSE) + 
-  geom_segment(mapping = aes(xend = word, yend = 0), show.legend = FALSE) + 
-  facet_wrap(~ category, scales = "free") + 
-  coord_flip()
+rm(subcategory, articles_subcategory)
 
 

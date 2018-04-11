@@ -22,7 +22,6 @@ library('stringi') # string manipulation
 library('ggplot2') # data visualisation
 library('topicmodels') # lda class
 library('tidyr') # tidy lda objects
-source('code/helpers/3 - model interpretation.R')
 
 
 # Corpus ------------------------------------------------------------------

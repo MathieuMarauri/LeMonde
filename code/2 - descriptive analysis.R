@@ -12,7 +12,6 @@ library('stringi') # string manipulation
 library('ggplot2') # data visualisation
 library("wordcloud") # wordcloud visualisation
 library('tidytext') # tidy document term matrix
-source('code/helpers/3 - descriptive analysis.R')
 
 
 # Ggplot theme ----------------------------------------------------------------------

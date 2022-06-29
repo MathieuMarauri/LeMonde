@@ -1,5 +1,60 @@
 
-# Functions to ease the analysis of LDA models 
+#'
+#' This function plots the distribution of the gamma probabilities on each category for
+#' all topics using boxplot
+#'
+#' @param model an object of class LDA
+#' @param categories table with categories associated to the articles
+#' @param subcategory logical, use subcategories instead of categories
+#'   
+plotGammaDistribution <- function(model, categories) {
+  article_topic <- tidy(model, matrix = "gamma")
+  setDT(article_topic)
+  article_topic <- merge(x = article_topic, 
+                         y = categories, 
+                         by.x = 'document',
+                         by.y = 'id',
+                         allow.cartesian = TRUE)
+  ggplot(data = article_topic, mapping = aes(x = category, y = gamma)) + 
+    geom_boxplot(outlier.size = 0.2, size = 0.2) + 
+    coord_flip() + 
+    facet_wrap(~ topic, scales = 'free') + 
+    labs(x = '', y = 'Gamma median', 
+         title = 'Gamma distribution for each category for all topics.', 
+         subtitle = 'Articles found in several categories are duplicated.')
+}
+
+#'
+#' This function plots the distribution of the gamma probabilities on each subcategory
+#' with gamma mean higher than the overall mean for all topics using boxplot
+#'
+#' @param model an object of class LDA
+#' @param categories table with categories associated to the articles
+#' @param subcategory logical, use subcategories instead of categories
+#'   
+plotGammaDistribution2 <- function(model, categories) {
+  article_topic <- tidy(model, matrix = "gamma")
+  setDT(article_topic)
+  article_topic <- merge(x = article_topic, 
+                         y = categories, 
+                         by.x = 'document',
+                         by.y = 'id',
+                         allow.cartesian = TRUE)
+  gamma_threshold <- article_topic[, .(gamma_threshold = mean(gamma)), by = topic]
+  article_topic <- merge(x = article_topic, 
+                         y = gamma_threshold, 
+                         by = 'topic')
+  article_topic[, gamma_mean := mean(gamma), by = list(topic, subcategory)]
+  article_topic <- article_topic[gamma_mean > gamma_threshold]
+  ggplot(data = article_topic, mapping = aes(x = subcategory, y = gamma)) + 
+    geom_boxplot(outlier.size = 0.2, size = 0.2) + 
+    coord_flip() + 
+    facet_wrap(~ topic, scales = 'free') + 
+    labs(x = '', y = 'Gamma median', 
+         title = 'Gamma distribution for each subcategory for all topics.', 
+         subtitle = 'Articles found in several categories are duplicated. Only subcategories with gamma mean are displayed.')
+  
+}
 
 #'
 #' This function extracts the top beta probabilities from the LDA model object
@@ -17,8 +72,8 @@
 #'   given topic and the overall mean, which is 1 divided by the number of
 #'   words. 
 #'   
-getTopWords <- function(model, use_diff = FALSE, n = 10) {
-  topic_term <- tidytext::tidy(model, matrix = "beta")
+plotTopWords <- function(model, use_diff = FALSE, n = 10) {
+  topic_term <- tidy(model, matrix = "beta")
   setDT(topic_term)
   if (use_diff) {
     topic_term[, beta := beta - mean(beta), by = term]

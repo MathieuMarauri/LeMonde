@@ -4,7 +4,7 @@
 # Topics will be considered well defined if words with the highest probabilities are
 # different enough across topics. Then the distribution of the document over the topics is
 # analysed. It will be compared to the subcategories obtained from the website. Articles
-# taht are 'misclassified' will be further analysed.
+# that are 'misclassified' will be further analysed.
 
 # LDA method is described here (https://en.wikipedia.org/wiki/Latent_Dirichlet_allocation)
 # and here
@@ -21,11 +21,13 @@ library('data.table') # dataset manipulation
 library('stringi') # string manipulation
 library('ggplot2') # data visualisation
 library('topicmodels') # lda class
-library('tidyr') # tidy lda objects
+library('tidytext') # tidy lda objects
+library('ggridges') # joyplot
 
 
 # Corpus ------------------------------------------------------------------
 
+# import article data
 articles <- readRDS('data/articles.rds')
 
 # keep only relevant variables
@@ -38,6 +40,15 @@ articles[, category_main := stri_replace_all_regex(category, '/.*', '')]
 # number of articles by subcategories 
 articles_subcategory <- articles[, .(nb_articles = .N), by = subcategory_main]
 articles_category <- articles[, .(nb_articles = .N), by = category_main]
+
+# duplicate articles that are in several categories
+articles_duplicated <- articles[, cbind(category_simple = strsplit(category, '/'), .SD), 
+                                by = 'id']
+
+# table with article id and associated category to compute counts by category
+categories <- categories[, .(id = id, 
+                             category = category_simple, 
+                             subcategory = subcategory)]
 
 # clean session
 rm(articles_subcategory, articles_category)
@@ -88,8 +99,8 @@ ggplot(data = topic_term_top10, mapping = aes(x = term, y = beta)) +
   facet_wrap(~ topic, scales = "free") + 
   coord_flip()
 
-# Since no stopwords removal method has been used, the highest probabilitis are for words
-# with no inforamtion. We now extract, by topic, the words with the highest difference in
+# Since no stopwords removal method has been used, the highest probabilities are for words
+# with no information. We now extract, by topic, the words with the highest difference in
 # probability between the given topic and the mean probabilities on the others. This way
 # the words most associated with one topic and not the others will be extracted.
 
@@ -112,7 +123,7 @@ ggplot(data = topic_term_diff10, mapping = aes(x = term, y = beta)) +
 # stopwords.
 
 # clean session
-rm(articles_lda, topic_term, topic_term_top10)
+rm(topic_term, topic_term_top10, topic_term_diff10)
 
 
 # Gamma probabilities -----------------------------------------------------
@@ -125,14 +136,60 @@ rm(articles_lda, topic_term, topic_term_top10)
 # subcategory. Even though articles can contain several topics we suppose that those case
 # are rare enough so that we can have a clustering that is not fuzzy in most cases.
 
-# extarct gamma probabilities from the model
+# Distribution of probabilities accross topics by category.
+
+# extract gamma probabilities from the model
+article_topic <- tidy(articles_lda, matrix = "gamma")
+setDT(article_topic)
+
+# add category information to article topic 
+article_topic <- merge(x = article_topic, 
+                       y = categories, 
+                       by.x = 'document',
+                       by.y = 'id',
+                       allow.cartesian = TRUE)
+
+# probability distribution over categories by topic
+ggplot(data = article_topic, mapping = aes(x = category, y = gamma)) + 
+  geom_boxplot(outlier.size = 0.2, size = 0.2) + 
+  coord_flip() + 
+  facet_wrap(~ topic, scales = 'free') + 
+  labs(x = '', y = 'Gamma median', 
+       title = 'Gamma distribution for each category for all topics.', 
+       subtitle = 'Articles found in several categories are duplicated.')
+# Topic 3 appears to be more about planet, topic 4 clearly is about sport
+
+# Probability distribution over subcategories by topic. The subcategories whith gamma mean
+# lower than threshold are not plotted so the graphe is clearer. The threshold choose is
+# the mean of the gamma probability. 
+
+# gamma threshold by topic
+gamma_threshold <- article_topic[, .(gamma_threshold = mean(gamma)), by = topic]
+
+# filter out subcategories with gamma mean lower than threshold by topic
+article_topic <- merge(x = article_topic, 
+                       y = gamma_threshold, 
+                       by = 'topic')
+article_topic[, gamma_mean := mean(gamma), by = list(topic, subcategory)]
+article_topic <- article_topic[gamma_mean > gamma_threshold]
+
+# plot 
+ggplot(data = article_topic, mapping = aes(x = subcategory, y = gamma)) + 
+  geom_boxplot(outlier.size = 0.2, size = 0.2) + 
+  coord_flip() + 
+  facet_wrap(~ topic, scales = 'free') + 
+  labs(x = '', y = 'Gamma median', 
+       title = 'Gamma distribution for each subcategory for all topics.', 
+       subtitle = 'Articles found in several categories are duplicated. Only subcategories with gamma mean are displayed.')
+
+# extract gamma probabilities from the model
 article_topic <- tidy(articles_lda, matrix = "gamma")
 setDT(article_topic)
 
 # the topic with highest probability is extracted for every articles. In order not to
 # select a topic that is only slighty more likely than what could be expected a threshold
 # is defined. It is the mean + the standard deviation of all gamma probabilities. This way
-# articles that are equivalently distributed oon all topics will not be assigned a main
+# articles that are equivalently distributed on all topics will not be assigned a main
 # topic.
 mean(article_topic$gamma)
 sd(article_topic$gamma)
@@ -143,8 +200,10 @@ rm(article_threshold)
 
 # filter gamma probabilities that are under the threshold
 article_topic <- article_topic[gamma >= gamma_threshold]
+
 # how many articles are excluded by this threshlod?
 (nrow(articles) - uniqueN(article_topic$document)) / nrow(articles) * 100
+
 # how many topics by article?
 article_topic[, nb_topic := uniqueN(topic), by = document]
 
@@ -154,17 +213,19 @@ article_topic_top <- article_topic[, .(topic = topic[which.max(gamma)],
                                        gamma = max(gamma)), 
                                    by = document]
 
-# the subcategories are retrieved from the articles table so a confusion matrix can be
-# constructed.
+# the categories and subcategories are retrieved from the articles table so a confusion
+# matrix can be constructed.
 article_topic_top <- merge(x = article_topic_top, 
-                           y = articles[, .(id, subcategory_main)],
+                           y = articles[, .(id, category_main, subcategory_main)],
                            by.x = 'document', 
                            by.y = 'id', 
                            all.x = TRUE,
                            all.y = FALSE)
+
+# the confusion matrix can be made on categories or subcategories
 article_topic_top <- article_topic_top[, .(article_id = document, 
                                            topic, 
-                                           category = subcategory_main, 
+                                           category = category_main, # change here
                                            gamma)]
 
 # a consufion matrix is build with percentage of articles by topic and by category
@@ -191,14 +252,11 @@ ggplot(data = article_confusion,
         panel.grid.major = element_blank()) + 
   coord_fixed()
 
-# Some topics are clearly associated with one category from lemonde.fr (topics 3 and 7).
-# 99.2% of the articles classified in topic 3 come from the football category which falls
-# in the topic 3 in 85.6% of the cases. 84.5% of the articles from the category
-# 'les-enfants-akira' fall in the topic7. 61% of articles whose main topic is the number 1
-# are from the category 'energie'. The articles from the category 'energie' are in the
-# topic 1 segment for 49.6% of the cases. As expected topic 6 concerns articles from the
-# economy and politics categories. Topic 2 and the category culture are groups that have
-# been the less discriminated.
+# Some topics are clearly associated with one category from lemonde.fr (topics 3 and 4).
+# 96.8% of the articles classified in topic 3 come from the football category which falls
+# in the topic 3 in 81.2% of the cases. 68.1% of the articles classified in the topic 3
+# come from the planete category which falls in the topic 3 73.7% of the cases.
 
 rm(article_confusion, article_topic_top)
+
 

@@ -1,26 +1,34 @@
 
-# LDa model is now performed on the different document term matrices constructed
+# LDA model is now performed on the different document term matrices constructed
 # in the pre-processing step. The same process as the one used for the baseline
 # is used. Helper functions are created to ease the anaysis. 
 
 # Packages ----------------------------------------------------------------
 
-library('data.table')
-library('stringi')
-library('ggplot2')
+library('data.table') # dataset manipulation
+library('stringi') # string manipuation
+library('ggplot2') # data visualisation
+library('topicmodels') # LDA modeling
+library('tidytext') # tidy LDA objects
 source('code/helpers/LDA analysis.R')
 
 
 # Corpus ------------------------------------------------------------------
 
+# import article data
 articles <- readRDS('data/articles.rds')
 
 # keep only relevant variables
 articles <- articles[, .(id = as.character(id), text, category, subcategory)]
 
-# transform category and subcategory to keep only the last item
-articles[, subcategory_main := stri_replace_all_regex(subcategory, '.*/', '')]
-articles[, category_main := stri_replace_all_regex(category, '/.*', '')]
+# duplicate articles that are in several categories
+categories <- articles[, cbind(category_simple = strsplit(category, '/'), .SD), 
+                       by = 'id']
+
+# table with article id and associated category to compute counts by category
+categories <- categories[, .(id = id, 
+                             category = category_simple, 
+                             subcategory = subcategory)]
 
 
 # Bag of words ------------------------------------------------------------
@@ -29,37 +37,39 @@ articles[, category_main := stri_replace_all_regex(category, '/.*', '')]
 # method.
 
 # Construct the model
-dtm_bow <- readRDS('data/dtm/dtm_bow.rds')
-articles_lda <- topicmodels::LDA(x = dtm_bow, 
-                                 k = 8, 
-                                 method = 'Gibbs', 
-                                 control = list(seed = 1234, 
-                                                verbose = 5))
-rm(dtm_bow)
-saveRDS(articles_lda, 'data/lda/lda_bow.rds')
+# dtm_bow <- readRDS('data/dtm/dtm_bow.rds')
+# articles_lda <- LDA(x = dtm_bow, 
+#                     k = 8, 
+#                     method = 'VEM', 
+#                     control = list(seed = 1234, 
+#                                    verbose = 5))
+# rm(dtm_bow)
+# saveRDS(articles_lda, 'data/lda/lda_bow.rds')
 
 # import model results
 articles_lda <- readRDS('data/lda/lda_bow.rds')
 
 # What are the words most associated with the topics?
-getTopWords(model = articles_lda, use_diff = FALSE, n = 10)
-
-# Some words are added to the stopwords list after looking at the most frequent words.
-
-# Topic 1 seems to be about medecine
-# Topic 2 seems to be about politics
-# Topic 3 seems to be about Irma (with n = 15 'Irma' appears)
-# Topic 4 seems to be about economics
-# Words from topic 5 are too general
-# Topic 6 seems to be about justice
-# Topic 7 seems to be about sport
-# Topic 8 seems to be about culture
+plotTopWords(model = articles_lda, use_diff = FALSE, n = 10)
+# Topic 1 seems to be about culture
+# Topic 2 seems to be about sport
+# Topic 3 is unclear
+# Topic 4 is unclear
+# Topic 5 seems to be about Irma 
+# Topic 6 is unclear
+# Topic 7 seems to be about politics
+# Topic 8 seems to be about olympics
 
 # What are the words most associated with only one topic?
-getTopWords(model = articles_lda, use_diff = TRUE, n = 10)
-
-# Words from topic 5 are still not informative enough, Irma now appears in th
-# top 10 words in topic 3
+plotTopWords(model = articles_lda, use_diff = TRUE, n = 10)
+# Categories defined previously are more valid
 
 # How are the articles distributed on the topics?
+plotGammaDistribution(model = articles_lda, categories = categories)
+# Intuition from top words is confirmed
+
+# How are the articles distributed on the topics over subcategories?
+plotGammaDistribution(model = articles_lda, categories = categories, subcategory = TRUE)
+# Intuition from top words is confirmed
+
 confusionMatrix(model = articles_lda, gamma_threshold = NULL, sankey = FALSE)
